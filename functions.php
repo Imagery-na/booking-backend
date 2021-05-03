@@ -8,73 +8,121 @@
 
 function getData($route, $params = []) {
     global $connection;
-    $query =  mysqli_query($connection, "SELECT * FROM halls ORDER BY number");
-    while($hall = mysqli_fetch_assoc($query)){
-        $hallSportsquery =  mysqli_query($connection, "SELECT sports.id, sports.name FROM sports, typesofsport WHERE (sports.id = typesofsport.sportId AND typesofsport.hallNumber = ".$hall['number'].")");
-        while($hallSport = mysqli_fetch_assoc($hallSportsquery)){
-            $hall['sports'][] = $hallSport;
+    switch ($route) {
+        case 'halls': {
+            $query =  mysqli_query($connection, "SELECT * FROM halls ORDER BY number");
+            while($hall = mysqli_fetch_assoc($query)){
+                $hallSportsquery =  mysqli_query($connection, "SELECT sports.id, sports.name FROM sports, typesofsport WHERE (sports.id = typesofsport.sportId AND typesofsport.hallNumber = ".$hall['number'].")");
+                while($hallSport = mysqli_fetch_assoc($hallSportsquery)){
+                    $hall['sports'][] = $hallSport;
+                }
+                $data[] = $hall;
+            }
+            
+            return $data;
         }
-        $data[] = $hall;
-    }
 
-    if (!empty($params['number'])) {
-        $id = $params['number'];
-        return array_find($data, function ($element) use ($id) {
-            return (int) $element['number'] === (int) $id;
-        });
+        case 'bookings': {
+
+            if (empty($params['id'])) {
+                $query =  mysqli_query($connection, "SELECT * FROM `$route` ORDER BY id DESC");
+                while($booking = mysqli_fetch_assoc($query)){
+                    $data[] = $booking;
+                }   
+            } else {
+                $hallId=$params['id'];
+                $query =  mysqli_query($connection, "SELECT * FROM bookings WHERE hallNumber=$hallId ");
+                    while($booking = mysqli_fetch_assoc($query)){
+                        $data[] = $booking;
+                    }
+            }
+            return $data;
+        }
+
+        case 'bookingInfo': {
+            $bookingId=$params['id'];
+            $query =  mysqli_query($connection, "SELECT bookings.id, date, timeFrom, timeTo, hallNumber, cost, dateString, 
+            halls.name AS hallName FROM bookings, halls WHERE bookings.id=$bookingId AND bookings.hallNumber = halls.number");
+                while($booking = mysqli_fetch_assoc($query)){
+                    $data[] = $booking;
+                }
+            return $data;
+        }
+
+        case 'bookingAllInfo': {
+            // добавить данные о клиенте
+            $bookingId=$params['id'];
+            $query =  mysqli_query($connection, "SELECT bookings.id, date, timeFrom, timeTo, hallNumber, cost, dateString,
+            halls.name AS hallName,
+            sports.name AS sportName, sports.id AS sportId,
+            clients.phone AS clientPhone, clients.name AS clientName
+            FROM bookings, halls, sports, clients
+            WHERE bookings.id=$bookingId AND bookings.hallNumber = halls.number AND bookings.sportId = sports.id AND bookings.clientId = clients.id");
+                while($booking = mysqli_fetch_assoc($query)){
+                    $data[] = $booking;
+                }
+            return $data;
+        }
     }
-    
-    return $data;
 }
 
 function postData($route, $params = []) {
     global $connection;
-    $newData;
+    $newData = null;
     
     switch ($route) {
-        case 'news': {
-            if (empty($params['title']) || empty($params['text']) || empty($params['author'])) {
+        case 'bookings': {
+            if (empty($params['date']) || empty($params['timeFrom']) || empty($params['timeTo'])) {
                 http_response_code(400);
                 exit('Request error');    
             }
 
             $newData = [
-                'title' => $params['title'],
-                'text' => $params['text'],
-                'author' => $params['author'],
-                'picture' => $params['picture'],
-                'date' => $params['date']
+                'date' => $params['date'],
+                'timeFrom' => $params['timeFrom'],
+                'timeTo' => $params['timeTo'],
+                'hallNumber' => $params['hallNumber'],
+                'cost' => $params['cost'],
+                'dateString' => $params['dateString'],
             ];
 
-            break;
+            $date=$newData['date'];
+            $timeFrom=$newData['timeFrom'];
+            $timeTo=$newData['timeTo'];
+            $hallNumber=$newData['hallNumber'];
+            $cost=$newData['cost'];
+            $dateString=$newData['dateString'];
+            $addData=mysqli_query($connection, "INSERT INTO `$route` VALUES (DEFAULT, '$date', '$timeFrom', '$timeTo', DEFAULT, '$hallNumber', DEFAULT, DEFAULT, '$cost', DEFAULT, '$dateString')");
+            $newData['id'] = mysqli_insert_id($connection);
+            $data = $newData;
+            return $newData;
         }
 
-        case 'users': {
-            if (empty($params['login']) || empty($params['name']) || empty($params['password'])) {
+        case 'clientInfo': {
+            if (empty($params['phone']) || empty($params['client']) || empty($params['sportId']) || empty($params['bookingId'])) {
                 http_response_code(400);
                 exit('Request error');    
             }
             
             $newData = [
-                'login' => $params['login'],
-                'name' => $params['name'],
-                'password' => $params['password'],
+                'phone' => $params['phone'],
+                'client' => $params['client'],
+                'sportId' => $params['sportId'],
+                'bookingId' => $params['bookingId'],
             ];
 
-            break;
+            $phone=$newData['phone'];
+            $clientName=$newData['client'];
+            $sportId=$newData['sportId'];
+            $bookingId=$newData['bookingId'];
+            $addData=mysqli_query($connection, "INSERT INTO clients VALUES (DEFAULT, '$phone', '$clientName')");
+            $clientId=mysqli_insert_id($connection);
+            $newData['id'] = $clientId;
+            $addData=mysqli_query($connection, "UPDATE bookings SET sportId=$sportId, clientId=$clientId WHERE id=$bookingId");
+            $data[] = $newData;
+            return $newData;
         }
     }
-
-    $newTitle=$newData['title'];
-    $newText=$newData['text'];
-    $newAuthor=$newData['author'];
-    $newPicture=$newData['picture'];
-    $newDate=$newData['date'];
-    echo $newID;
-    $addData=mysqli_query($connection, "INSERT INTO `$route` VALUES (DEFAULT, '$newTitle', '$newText', '$newAuthor', '$newPicture', '$newDate')");
-    $newData['id'] = mysqli_insert_id($connection);
-    $data[] = $newData;
-    return $newData;
 }
 
 function deleteData($route, $params = []) {
