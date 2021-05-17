@@ -43,9 +43,17 @@ function getData($route, $params = []) {
             $bookingId=$params['id'];
             $query =  mysqli_query($connection, "SELECT bookings.id, date, timeFrom, timeTo, hallNumber, cost, dateString, 
             halls.name AS hallName FROM bookings, halls WHERE bookings.id=$bookingId AND bookings.hallNumber = halls.number");
-                while($booking = mysqli_fetch_assoc($query)){
-                    $data[] = $booking;
+                // while($booking = mysqli_fetch_assoc($query)){
+                //     $data[] = $booking;
+                // }
+            while($booking = mysqli_fetch_assoc($query)){
+                $hallSportsQuery =  mysqli_query($connection, "SELECT sports.id, sports.name FROM sports, typesofsport
+                WHERE (sports.id = typesofsport.sportId AND typesofsport.hallNumber = ".$booking['hallNumber'].")");
+                while($hallSport = mysqli_fetch_assoc($hallSportsQuery)){
+                    $booking['sports'][] = $hallSport;
                 }
+                $data[] = $booking;
+            }
             return $data;
         }
 
@@ -140,7 +148,7 @@ function deleteData($route, $params = []) {
     }
 
     // $dataJSON = file_get_contents($filePath);
-    $data;
+    // $data;
     $deletableId = $params['id'];
     $deletableTitle = $params['title'];
 
