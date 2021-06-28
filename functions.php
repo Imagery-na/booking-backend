@@ -79,6 +79,21 @@ function getData($route, $params = []) {
             return $data;
         }
 
+        case 'clientBookingsAllInfo': {
+            $clientId=$params['id'];
+            $query =  mysqli_query($connection, "SELECT bookings.id, date, timeFrom, timeTo, hallNumber, cost, dateString,
+            halls.name AS hallName,
+            sports.name AS sportName, sports.id AS sportId,
+            clients.phone AS clientPhone, clients.name AS clientName
+            FROM bookings, halls, sports, clients
+            WHERE bookings.hallNumber = halls.number AND bookings.sportId = sports.id AND bookings.clientId = clients.id AND clients.id = $clientId
+            LIMIT 500");
+                while($booking = mysqli_fetch_assoc($query)){
+                    $data[] = $booking;
+                }
+            return $data;
+        }
+
         case 'bookingsAllInfo': {
             $query =  mysqli_query($connection, "SELECT bookings.id, date, timeFrom, timeTo, hallNumber, cost, dateString,
             halls.name AS hallName,
@@ -368,7 +383,7 @@ function postData($route, $params = []) {
             $data[] = $newData;
             return $newData;
         }
-
+        // авторизация в админке
         case 'auth': {
             if (empty($params['login']) || empty($params['password'])) {
                 http_response_code(400);
@@ -395,6 +410,29 @@ function postData($route, $params = []) {
             
             $newData['result'] = $result;
             $data['result'] = $result;
+            return $data;
+        }
+        
+        // вход в личный кабинет клиента
+        case 'login': {
+            if (empty($params['phone'])) {
+                http_response_code(400);
+                exit('Request error');    
+            }
+            
+            $newData = [
+                'phone' => $params['phone'],
+            ];
+
+            
+
+            $phone=$newData['phone'];
+
+            $query =  mysqli_query($connection, "SELECT * FROM clients WHERE phone='$phone' ");
+            while($client = mysqli_fetch_assoc($query)){
+                $clientId = $client['id'];
+            }
+            $data['id'] = $clientId;
             return $data;
         }
     }
